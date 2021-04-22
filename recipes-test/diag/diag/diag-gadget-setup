@@ -1,0 +1,35 @@
+#!/bin/sh
+
+set -e
+
+manufacturer=RPB
+model="Android device"
+serial=0123456789ABCDEF
+
+if [ -r /etc/diag-gadget-setup.machine ] ; then
+	. /etc/diag-gadget-setup.machine
+fi
+
+[ -d /sys/kernel/config/usb_gadget ] || modprobe libcomposite
+
+cd /sys/kernel/config/usb_gadget
+
+[ -d diag ] && /usr/bin/diag-gadget-cleanup || true
+
+mkdir diag
+cd diag
+
+mkdir configs/c.1
+mkdir functions/ffs.diag
+mkdir strings/0x409
+mkdir configs/c.1/strings/0x409
+echo 0x18d1 > idVendor
+echo 0xd002 > idProduct
+echo "$serial" > strings/0x409/serialnumber
+echo "$manufacturer" > strings/0x409/manufacturer
+echo "$model" > strings/0x409/product
+echo "diag_dun" > configs/c.1/strings/0x409/configuration
+ln -s functions/ffs.diag configs/c.1
+
+mkdir -p /dev/ffs-diag
+mount -t functionfs diag /dev/ffs-diag

@@ -1,0 +1,14 @@
+[Unit]
+Description=Diag router
+Before=getty.target
+
+[Service]
+Type=simple
+Restart=on-failure
+ExecStartPre=/usr/bin/diag-gadget-setup
+ExecStart=/usr/bin/diag-router
+ExecStartPost=/usr/bin/diag-gadget-start
+ExecStopPost=/usr/bin/diag-gadget-cleanup
+
+[Install]
+WantedBy=basic.target

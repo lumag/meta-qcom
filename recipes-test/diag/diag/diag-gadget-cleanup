@@ -1,0 +1,24 @@
+#!/bin/sh
+
+[ -d /sys/kernel/config/usb_gadget ] || exit 0
+
+cd /sys/kernel/config/usb_gadget
+
+cd diag
+
+echo "" > UDC || true
+
+killall diag-router || true
+
+umount /dev/ffs-diag
+
+rm configs/c.1/ffs.diag
+
+rmdir configs/c.1/strings/0x409
+rmdir configs/c.1
+
+rmdir functions/ffs.diag
+rmdir strings/0x409
+
+cd ..
+rmdir diag
