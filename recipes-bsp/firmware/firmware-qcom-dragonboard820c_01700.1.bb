@@ -29,6 +29,10 @@ do_install() {
     install -m 0444 ./proprietary-linux/adsp*.* ${D}${FW_QCOM_PATH}/
     pil-squasher ${D}${FW_QCOM_PATH}/adsp.mbn ./proprietary-linux/adsp.mdt
 
+    install -m 0444 ./proprietary-linux/mba.mbn ${D}${FW_QCOM_PATH}/
+    pil-squasher ${D}${FW_QCOM_PATH}/modem.mbn ./proprietary-linux/modem.mdt
+    install -m 0444 ./proprietary-linux/modemr.jsn ${D}${FW_QCOM_PATH}/
+
     install -m 0444 ./bootloaders-linux/adspso.bin ${D}${FW_QCOM_PATH}/
 
     install -d ${D}${nonarch_base_libdir}/firmware/ath10k/QCA6174/hw3.0/
@@ -55,4 +59,5 @@ SPLIT_FIRMWARE_PACKAGES = " \
     ${PN}-dspso \
     linux-firmware-qcom-${FW_QCOM_NAME}-audio \
     linux-firmware-qcom-${FW_QCOM_NAME}-audio-split \
+    linux-firmware-qcom-${FW_QCOM_NAME}-modem \
 "
