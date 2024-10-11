@@ -91,7 +91,13 @@ jobs:
         done
         done
 
-        images=${{inputs.images}}
+        # armv7 machines do not support ESP / UKI
+        for machine in ${{inputs.machines}}; do
+        if [ ${machine##qcom-armv8a} == ${machine} ] ; then
+          images=`echo ${{inputs.images}} | sed -e 's/esp-qcom-image//g'`
+        else
+          images="${{inputs.images}}"
+        fi
         cat << EOF >> plan.yaml
         ${machine}: &${machine}
           machine: ${machine}
