@@ -1,0 +1,98 @@
+From 911dcc7ba78ced6fa4758ef9196ba558363c4a83 Mon Sep 17 00:00:00 2001
+From: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Date: Tue, 30 Sep 2025 05:00:19 +0300
+Subject: [PATCH 2/3] ir3: Implement load_/store_global_ir3 for A4xx/A5xx
+
+The commit fdc0f489e098 ("ir3: add ldg.a,stg.a which allow complex
+in-place offset calculation") has provided A6xx-specific implementation
+of these two intrinsics, omitting the implementation for A4xx/A5xx,
+however these intrinsics are required for OpenCL support.
+
+Implement missing intrinsics support reusing the code that was present
+before the mentioned commit.
+
+Fixes: fdc0f489e098 ("ir3: add ldg.a,stg.a which allow complex in-place offset calculation")
+Signed-off-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Upstream-Status: Submitted [https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/37626]
+---
+ src/freedreno/ir3/ir3_a4xx.c | 58 ++++++++++++++++++++++++++++++++++--
+ 1 file changed, 56 insertions(+), 2 deletions(-)
+
+diff --git a/src/freedreno/ir3/ir3_a4xx.c b/src/freedreno/ir3/ir3_a4xx.c
+index 2df1e014a796..601a3de5bf3a 100644
+--- a/src/freedreno/ir3/ir3_a4xx.c
++++ b/src/freedreno/ir3/ir3_a4xx.c
+@@ -383,6 +383,60 @@ emit_intrinsic_atomic_global(struct ir3_context *ctx, nir_intrinsic_instr *intr)
+    unreachable("Global atomic are unimplemented on A5xx");
+ }
+ 
++static void emit_intrinsic_load_global_ir3(struct ir3_context *ctx,
++                                           nir_intrinsic_instr *intr,
++                                           struct ir3_instruction **dst)
++{
++   struct ir3_builder *b = &ctx->build;
++   unsigned dest_components = nir_intrinsic_dest_components(intr);
++   struct ir3_instruction *addr, *offset;
++
++   addr = ir3_collect(b, ir3_get_src(ctx, &intr->src[0])[0]);
++
++   offset = ir3_get_src(ctx, &intr->src[1])[0];
++
++   struct ir3_instruction *load =
++      ir3_LDG(b, addr, 0,
++	      offset, 0,
++              create_immed(b, dest_components), 0);
++
++   load->cat6.type = TYPE_U32;
++   load->dsts[0]->wrmask = MASK(dest_components);
++
++   load->barrier_class = IR3_BARRIER_BUFFER_R;
++   load->barrier_conflict = IR3_BARRIER_BUFFER_W;
++
++   ir3_split_dest(b, dst, load, 0, dest_components);
++}
++
++static void emit_intrinsic_store_global_ir3(struct ir3_context *ctx,
++                                            nir_intrinsic_instr *intr)
++{
++   struct ir3_builder *b = &ctx->build;
++   struct ir3_instruction *value, *addr, *offset;
++   unsigned ncomp = nir_intrinsic_src_components(intr, 0);
++
++   addr = ir3_collect(b, ir3_get_src(ctx, &intr->src[1])[0]);
++
++   offset = ir3_get_src(ctx, &intr->src[2])[0];
++
++   value = ir3_create_collect(b, ir3_get_src(ctx, &intr->src[0]), ncomp);
++
++   struct ir3_instruction *stg =
++      ir3_STG(b, addr, 0,
++	      offset, 0,
++	      value, 0,
++              create_immed(b, ncomp), 0);
++
++   stg->cat6.type = TYPE_U32;
++   stg->cat6.iim_val = 1;
++
++   array_insert(ctx->block, ctx->block->keeps, stg);
++
++   stg->barrier_class = IR3_BARRIER_BUFFER_W;
++   stg->barrier_conflict = IR3_BARRIER_BUFFER_R | IR3_BARRIER_BUFFER_W;
++}
++
+ const struct ir3_context_funcs ir3_a4xx_funcs = {
+    .emit_intrinsic_load_ssbo = emit_intrinsic_load_ssbo,
+    .emit_intrinsic_store_ssbo = emit_intrinsic_store_ssbo,
+@@ -391,7 +445,7 @@ const struct ir3_context_funcs ir3_a4xx_funcs = {
+    .emit_intrinsic_store_image = emit_intrinsic_store_image,
+    .emit_intrinsic_atomic_image = emit_intrinsic_atomic_image,
+    .emit_intrinsic_image_size = emit_intrinsic_image_size_tex,
+-   .emit_intrinsic_load_global_ir3 = NULL,
+-   .emit_intrinsic_store_global_ir3 = NULL,
++   .emit_intrinsic_load_global_ir3 = emit_intrinsic_load_global_ir3,
++   .emit_intrinsic_store_global_ir3 = emit_intrinsic_store_global_ir3,
+    .emit_intrinsic_atomic_global = emit_intrinsic_atomic_global,
+ };
+-- 
+2.51.0
+
